@@ -23,12 +23,18 @@
   const qrBaseEl = document.getElementById('qrBase');
   const qrFieldEl = document.getElementById('qrField');
   const qrEnableEl = document.getElementById('qrEnable');
+  const qrXEl = document.getElementById('qrX');
+  const qrYEl = document.getElementById('qrY');
+  const qrSizeEl = document.getElementById('qrSize');
 
   const tableEl = document.getElementById('csvTable');
   const previewRowSelect = document.getElementById('previewRowSelect');
 
   const previewEl = document.getElementById('preview');
   const addTextLayerBtn = document.getElementById('addTextLayerBtn');
+  const centerLayerBtn = document.getElementById('centerLayerBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
   const layersListEl = document.getElementById('layersList');
   const layerEditorEl = document.getElementById('layerEditor');
   const layerTextEl = document.getElementById('layerText');
@@ -36,10 +42,12 @@
   const layerColorEl = document.getElementById('layerColor');
   const layerXEl = document.getElementById('layerX');
   const layerYEl = document.getElementById('layerY');
+  const layerAlignEl = document.getElementById('layerAlign');
+  const layerFontEl = document.getElementById('layerFont');
+  const layerBoldEl = document.getElementById('layerBold');
+  const layerItalicEl = document.getElementById('layerItalic');
+  const fontUploadEl = document.getElementById('fontUpload');
   const deleteLayerBtn = document.getElementById('deleteLayerBtn');
-
-  const tabButtons = Array.from(document.querySelectorAll('.tab'));
-  const tabPanels = Array.from(document.querySelectorAll('[data-tab]'));
 
   let rows = [];
   let headers = [];
@@ -47,6 +55,7 @@
   let layout = { pageW: 1125, pageH: 870, layers: [] };
   let selectedLayerId = null;
   let previewRowIndex = 0;
+  let customFont = null; // { vfsName, family }
 
   function log(msg) {
     logEl.textContent += msg + "\n";
@@ -60,15 +69,6 @@
       return v.toString(16);
     });
   }
-
-  function setActiveTab(key) {
-    tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tabTarget === key));
-    tabPanels.forEach(panel => panel.classList.toggle('hidden', panel.getAttribute('data-tab') !== key));
-  }
-
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => setActiveTab(btn.dataset.tabTarget));
-  });
 
   function saveLayout() {
     try { localStorage.setItem('designerLayout', JSON.stringify(layout)); } catch {}
@@ -151,6 +151,17 @@
     return { sx: scaleX, sy: scaleY };
   }
 
+  function fontStyleForLayer(layer) {
+    const bold = !!layer.bold; const italic = !!layer.italic;
+    return bold && italic ? 'bolditalic' : (bold ? 'bold' : (italic ? 'italic' : 'normal'));
+  }
+
+  function cssAlign(align) {
+    if (align === 'center') return 'center';
+    if (align === 'right') return 'right';
+    return 'left';
+  }
+
   function renderLayersList() {
     layersListEl.innerHTML = '';
     layout.layers.forEach(layer => {
@@ -184,10 +195,15 @@
       const div = document.createElement('div');
       div.className = 'layer' + (layer.id === selectedLayerId ? ' selected' : '');
       div.dataset.id = layer.id;
-      div.style.left = `${(layer.x || 0) * sx}px`;
-      div.style.top = `${(layer.y || 0) * sy}px`;
+      const xpx = (layer.x || 0) * sx;
+      const ypx = (layer.y || 0) * sy;
+      div.style.left = `${xpx}px`;
+      div.style.top = `${ypx}px`;
       div.style.fontSize = `${layer.size || 24}px`;
       div.style.color = layer.color || '#093B6E';
+      div.style.fontWeight = layer.bold ? '700' : '400';
+      div.style.fontStyle = layer.italic ? 'italic' : 'normal';
+      div.style.textAlign = cssAlign(layer.align);
       div.textContent = compileTemplate(layer.text, row);
       enableDrag(div, layer);
       div.addEventListener('mousedown', () => selectLayer(layer.id));
@@ -231,12 +247,16 @@
     layerColorEl.value = layer.color || '#093B6E';
     layerXEl.value = String(layer.x || 0);
     layerYEl.value = String(layer.y || 0);
+    layerAlignEl.value = layer.align || 'left';
+    layerFontEl.value = layer.font || 'helvetica';
+    layerBoldEl.checked = !!layer.bold;
+    layerItalicEl.checked = !!layer.italic;
     renderPreview();
   }
 
   function addTextLayer() {
     const id = uuidv4();
-    const layer = { id, text: '{{ad}} {{soyad}}', size: 30, color: '#093B6E', x: 100, y: 100 };
+    const layer = { id, text: '{{ad}} {{soyad}}', size: 30, color: '#093B6E', x: 100, y: 100, align: 'left', font: 'helvetica', bold: false, italic: false };
     layout.layers.push(layer);
     saveLayout();
     renderLayersList();
@@ -274,6 +294,8 @@
       renderPreview();
     });
   }
+  if (prevBtn) prevBtn.addEventListener('click', () => { previewRowIndex = Math.max(0, previewRowIndex - 1); if (previewRowSelect) previewRowSelect.value = String(previewRowIndex); renderPreview(); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { previewRowIndex = Math.min(rows.length - 1, previewRowIndex + 1); if (previewRowSelect) previewRowSelect.value = String(previewRowIndex); renderPreview(); });
 
   // Background handling
   bgInput.addEventListener('change', async (e) => {
@@ -324,6 +346,12 @@
 
   // Designer controls
   addTextLayerBtn.addEventListener('click', addTextLayer);
+  if (centerLayerBtn) centerLayerBtn.addEventListener('click', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.align = 'center';
+    l.x = Math.round(layout.pageW / 2);
+    saveLayout(); renderPreview();
+  });
 
   layerTextEl.addEventListener('input', () => {
     const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
@@ -345,6 +373,47 @@
     const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
     l.y = Number(layerYEl.value) || 0; saveLayout(); renderPreview();
   });
+  layerAlignEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.align = layerAlignEl.value || 'left'; saveLayout(); renderPreview();
+  });
+  layerFontEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.font = layerFontEl.value || 'helvetica'; saveLayout(); renderPreview();
+  });
+  layerBoldEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.bold = !!layerBoldEl.checked; saveLayout(); renderPreview();
+  });
+  layerItalicEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.italic = !!layerItalicEl.checked; saveLayout(); renderPreview();
+  });
+  if (fontUploadEl) fontUploadEl.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const arrayBuffer = await file.arrayBuffer();
+    // convert to base64
+    let binary = '';
+    const bytes = new Uint8Array(arrayBuffer);
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    const base64 = btoa(binary);
+    const vfsName = file.name;
+    const family = 'custom';
+    try {
+      jsPDF.API.addFileToVFS(vfsName, base64);
+      jsPDF.API.addFont(vfsName, family, 'normal');
+      customFont = { vfsName, family };
+      const l = layout.layers.find(x => x.id === selectedLayerId); if (l) { l.font = 'custom'; }
+      saveLayout(); renderPreview();
+      log('Özel font yüklendi.');
+    } catch (err) {
+      log('Özel font yüklenemedi.');
+    }
+  });
   deleteLayerBtn.addEventListener('click', () => {
     const idx = layout.layers.findIndex(x => x.id === selectedLayerId);
     if (idx >= 0) layout.layers.splice(idx, 1);
@@ -365,6 +434,9 @@
     const base = (qrBaseEl?.value?.trim()) || '';
     const qrField = (qrFieldEl?.value?.trim()) || '';
     const includeQr = !!qrEnableEl.checked && !!qrField;
+    const qrX = Number(qrXEl?.value || 0) || 0;
+    const qrY = Number(qrYEl?.value || 0) || 0;
+    const qrSize = Number(qrSizeEl?.value || 75) || 75;
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
@@ -377,19 +449,27 @@
         catch { try { doc.addImage(bgDataUrl, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch {} }
       }
 
+      // register custom font each run if needed
+      if (customFont && customFont.vfsName) {
+        try { jsPDF.API.addFont(customFont.vfsName, customFont.family, 'normal'); } catch {}
+      }
+
       layout.layers.forEach(layer => {
         const text = compileTemplate(layer.text, r);
+        // font
+        const family = (layer.font === 'custom' && customFont) ? customFont.family : (layer.font || 'helvetica');
+        const style = fontStyleForLayer(layer);
+        try { doc.setFont(family, style); } catch {}
         try { doc.setTextColor(layer.color || '#000000'); } catch { doc.setTextColor(0,0,0); }
         doc.setFontSize(Number(layer.size || 24));
-        doc.text(String(text || ''), Number(layer.x || 0), Number(layer.y || 0), { align: 'left', baseline: 'alphabetic' });
+        doc.text(String(text || ''), Number(layer.x || 0), Number(layer.y || 0), { align: layer.align || 'left', baseline: 'alphabetic' });
       });
 
       if (includeQr && code) {
         const url = joinUrl(base, `${code}.pdf`);
         try {
           const qrDataUrl = await generateQrDataUrl(url);
-          const qrSize = 75;
-          doc.addImage(qrDataUrl, 'PNG', pageW - (qrSize + 40), pageH - (qrSize + 40), qrSize, qrSize, undefined, 'FAST');
+          doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize, undefined, 'FAST');
         } catch {}
       }
 
@@ -423,7 +503,6 @@
   loadLayout();
   renderLayersList();
   renderPreview();
-  setActiveTab('data');
 })();
 
 
