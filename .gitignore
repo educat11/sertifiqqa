@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Local data/output
+qr_foto/
+png_donusturme/
+sertifikalar/
+sertfikalar_v2/
+
+# Lists and exports
+liste/*.xlsx
+
+# PDFs and PNGs generated
+*.pdf
+png_donusturme/*.png
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Env
+.env
+.env.*

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sertifika Oluşturucu (GitHub Pages)</title>
+    <link rel="stylesheet" href="styles.css" />
+    <!-- Libraries via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Sertifika Oluşturucu</h1>
+      <p class="muted">CSV yükleyin, doğrulama kodlarını üretin, QR'lı PDF sertifikalar oluşturun.</p>
+
+      <section class="panel">
+        <label class="field">
+          <span>CSV Yükleyin</span>
+          <input type="file" id="csvInput" accept=".csv" />
+        </label>
+        <details>
+          <summary>CSV Şeması</summary>
+          <p>Beklenen sütunlar: id, ad, soyad, tarih, eposta, etkinlik, (opsiyonel) dogrulama_kodu</p>
+        </details>
+      </section>
+
+      <section class="panel">
+        <label class="field">
+          <span>Arkaplan Görseli (PNG/JPG) - opsiyonel</span>
+          <input type="file" id="bgInput" accept="image/*" />
+        </label>
+        <div class="row">
+          <label class="field half">
+            <span>Sayfa Genişlik (pt)</span>
+            <input type="number" id="pageW" value="1125" />
+          </label>
+          <label class="field half">
+            <span>Sayfa Yükseklik (pt)</span>
+            <input type="number" id="pageH" value="870" />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <label class="field">
+          <span>QR Taban URL</span>
+          <input type="text" id="qrBase" placeholder="https://ornek.com/sertifikalar/" value="https://btk-kulup.marmara.edu.tr/dosya/kulup/btk/sertfikalar/" />
+        </label>
+      </section>
+
+      <section class="panel actions">
+        <button id="addCodesBtn" disabled>Doğrulama Kodları Ekle</button>
+        <button id="exportCsvBtn" disabled>Güncellenmiş CSV'yi İndir</button>
+        <button id="generateBtn" disabled>PDF Sertifikaları Oluştur (ZIP)</button>
+      </section>
+
+      <section class="panel">
+        <div id="status">Henüz dosya yüklenmedi.</div>
+        <div id="log" class="log"></div>
+      </section>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
+
