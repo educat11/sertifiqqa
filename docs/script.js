@@ -151,42 +151,27 @@
     return { sx: scaleX, sy: scaleY };
   }
 
-  function fontStyleForLayer(layer) {
-    const bold = !!layer.bold; const italic = !!layer.italic;
-    return bold && italic ? 'bolditalic' : (bold ? 'bold' : (italic ? 'italic' : 'normal'));
-  }
-
   function cssAlign(align) {
     if (align === 'center') return 'center';
     if (align === 'right') return 'right';
     return 'left';
   }
 
-  function renderLayersList() {
-    layersListEl.innerHTML = '';
-    layout.layers.forEach(layer => {
-      const item = document.createElement('div');
-      item.className = 'item';
-      const label = document.createElement('div');
-      label.className = 'label';
-      label.textContent = (layer.text || '').slice(0, 32) || 'Metin katmanı';
-      const btn = document.createElement('button');
-      btn.textContent = 'Seç';
-      btn.addEventListener('click', () => selectLayer(layer.id));
-      item.appendChild(label);
-      item.appendChild(btn);
-      layersListEl.appendChild(item);
-    });
+  function cssFontFamily(font) {
+    if (font === 'times') return 'Times New Roman, Times, serif';
+    if (font === 'courier') return 'Courier New, Courier, monospace';
+    if (font === 'custom') return 'inherit';
+    return 'Helvetica, Arial, sans-serif';
   }
 
-  function renderPreview() {
+  async function renderPreview() {
     const w = Number(pageWEl.value) || layout.pageW;
     const h = Number(pageHEl.value) || layout.pageH;
     layout.pageW = w; layout.pageH = h; saveLayout();
     previewEl.style.aspectRatio = `${w} / ${h}`;
     setBgPreview();
 
-    Array.from(previewEl.querySelectorAll('.layer')).forEach(el => el.remove());
+    Array.from(previewEl.querySelectorAll('.layer, .qr-overlay')).forEach(el => el.remove());
 
     const row = rows[previewRowIndex] || {};
     const { sx, sy } = pxPerPt();
@@ -203,12 +188,41 @@
       div.style.color = layer.color || '#093B6E';
       div.style.fontWeight = layer.bold ? '700' : '400';
       div.style.fontStyle = layer.italic ? 'italic' : 'normal';
-      div.style.textAlign = cssAlign(layer.align);
+      div.style.fontFamily = cssFontFamily(layer.font);
+      const align = layer.align || 'left';
+      div.style.textAlign = cssAlign(align);
+      if (align === 'center') div.style.transform = 'translateX(-50%)';
+      else if (align === 'right') div.style.transform = 'translateX(-100%)';
+      else div.style.transform = 'none';
       div.textContent = compileTemplate(layer.text, row);
       enableDrag(div, layer);
       div.addEventListener('mousedown', () => selectLayer(layer.id));
       previewEl.appendChild(div);
     });
+
+    // QR overlay in preview
+    const includeQr = !!qrEnableEl.checked && !!(qrFieldEl.value || '').trim();
+    const code = (qrFieldEl.value || '') && row[qrFieldEl.value] ? row[qrFieldEl.value] : '';
+    if (includeQr && code) {
+      const base = (qrBaseEl?.value?.trim()) || '';
+      const url = joinUrl(base, `${code}.pdf`);
+      try {
+        const dataUrl = await generateQrDataUrl(url);
+        const qx = Number(qrXEl?.value || 0) || 0;
+        const qy = Number(qrYEl?.value || 0) || 0;
+        const qs = Number(qrSizeEl?.value || 75) || 75;
+        const div = document.createElement('div');
+        div.className = 'qr-overlay';
+        div.style.position = 'absolute';
+        div.style.left = `${qx * sx}px`;
+        div.style.top = `${qy * sy}px`;
+        div.style.width = `${qs * sx}px`;
+        div.style.height = `${qs * sy}px`;
+        div.style.backgroundImage = `url(${dataUrl})`;
+        div.style.backgroundSize = 'cover';
+        previewEl.appendChild(div);
+      } catch {}
+    }
   }
 
   function enableDrag(el, layer) {
@@ -294,8 +308,18 @@
       renderPreview();
     });
   }
-  if (prevBtn) prevBtn.addEventListener('click', () => { previewRowIndex = Math.max(0, previewRowIndex - 1); if (previewRowSelect) previewRowSelect.value = String(previewRowIndex); renderPreview(); });
-  if (nextBtn) nextBtn.addEventListener('click', () => { previewRowIndex = Math.min(rows.length - 1, previewRowIndex + 1); if (previewRowSelect) previewRowSelect.value = String(previewRowIndex); renderPreview(); });
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    if (!rows.length) return;
+    previewRowIndex = Math.max(0, previewRowIndex - 1);
+    if (previewRowSelect) previewRowSelect.value = String(previewRowIndex);
+    renderPreview();
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    if (!rows.length) return;
+    previewRowIndex = Math.min(rows.length - 1, previewRowIndex + 1);
+    if (previewRowSelect) previewRowSelect.value = String(previewRowIndex);
+    renderPreview();
+  });
 
   // Background handling
   bgInput.addEventListener('change', async (e) => {
@@ -449,16 +473,14 @@
         catch { try { doc.addImage(bgDataUrl, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch {} }
       }
 
-      // register custom font each run if needed
       if (customFont && customFont.vfsName) {
         try { jsPDF.API.addFont(customFont.vfsName, customFont.family, 'normal'); } catch {}
       }
 
       layout.layers.forEach(layer => {
         const text = compileTemplate(layer.text, r);
-        // font
         const family = (layer.font === 'custom' && customFont) ? customFont.family : (layer.font || 'helvetica');
-        const style = fontStyleForLayer(layer);
+        const style = (layer.bold && layer.italic) ? 'bolditalic' : (layer.bold ? 'bold' : (layer.italic ? 'italic' : 'normal'));
         try { doc.setFont(family, style); } catch {}
         try { doc.setTextColor(layer.color || '#000000'); } catch { doc.setTextColor(0,0,0); }
         doc.setFontSize(Number(layer.size || 24));
