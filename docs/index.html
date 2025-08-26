@@ -61,10 +61,19 @@
 
         <div class="row">
           <div class="half">
-            <div id="preview" class="preview" title="Katmanları sürükleyin"></div>
+            <div class="preview-wrap">
+              <div id="preview" class="preview" title="Katmanları sürükleyin">
+                <img id="bgImg" alt="bg" />
+              </div>
+            </div>
             <div class="row" style="margin-top:8px">
               <button id="prevBtn" title="Önceki kayıt">Önceki</button>
               <button id="nextBtn" title="Sonraki kayıt">Sonraki</button>
+              <label class="field" style="margin-left:12px; min-width:160px">
+                <span>Yakınlaştırma</span>
+                <input type="range" id="previewZoom" min="0.5" max="2" step="0.1" value="1" />
+              </label>
+              <button id="downloadCurrentBtn" title="Sadece bu kaydın PDF'ini indir">Bu PDF'i İndir</button>
             </div>
           </div>
           <div class="half">
