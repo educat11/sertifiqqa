@@ -20,7 +20,7 @@ body {
 }
 
 .container {
-  max-width: 900px;
+  max-width: 1100px;
   margin: 40px auto;
   padding: 0 16px;
 }
@@ -39,7 +39,7 @@ h1 { margin: 0 0 12px; font-size: 28px; }
 
 .field { display: block; margin: 8px 0; }
 .field > span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
-.field input[type="file"], .field input[type="number"] {
+.field input[type="file"], .field input[type="number"], .field input[type="text"], .field textarea, .field input[type="color"] {
   width: 100%;
   padding: 10px 12px;
   background: #0f1625;
@@ -60,6 +60,7 @@ button {
   border-radius: 8px;
   cursor: pointer;
 }
+button.danger { background: #d9534f; }
 button:disabled { background: #2c3b59; cursor: not-allowed; }
 button:hover:not(:disabled) { filter: brightness(1.05); }
 
@@ -79,5 +80,30 @@ button:hover:not(:disabled) { filter: brightness(1.05); }
 
 details { color: var(--muted); }
 summary { cursor: pointer; }
+
+.table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+#csvTable { width: 100%; border-collapse: collapse; font-size: 12px; }
+#csvTable th, #csvTable td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+#csvTable th { position: sticky; top: 0; background: #0f1625; color: var(--text); z-index: 1; }
+
+.preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1125 / 870;
+  background: #0f1625;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.preview .bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.layer { position: absolute; cursor: move; user-select: none; white-space: pre-wrap; }
+.layer.selected { outline: 1px dashed #fff; }
+
+.layers-list { margin-top: 8px; }
+.layers-list .item { padding: 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.layers-list .item .label { opacity: 0.9; font-size: 12px; }
+
+.layer-editor.hidden { display: none; }
+.layer-editor { margin-top: 8px; }
 
 
