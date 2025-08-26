@@ -35,6 +35,7 @@
   const centerLayerBtn = document.getElementById('centerLayerBtn');
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
+  const resetLayoutBtn = document.getElementById('resetLayoutBtn');
   const layersListEl = document.getElementById('layersList');
   const layerEditorEl = document.getElementById('layerEditor');
   const layerTextEl = document.getElementById('layerText');
@@ -72,6 +73,9 @@
 
   function saveLayout() {
     try { localStorage.setItem('designerLayout', JSON.stringify(layout)); } catch {}
+  }
+  function clearLayoutStorage() {
+    try { localStorage.removeItem('designerLayout'); } catch {}
   }
 
   function loadLayout() {
@@ -276,6 +280,16 @@
     renderLayersList();
     selectLayer(id);
   }
+
+  // Reset layout
+  if (resetLayoutBtn) resetLayoutBtn.addEventListener('click', () => {
+    clearLayoutStorage();
+    layout = { pageW: Number(pageWEl.value) || 1125, pageH: Number(pageHEl.value) || 870, layers: [] };
+    selectedLayerId = null;
+    renderLayersList();
+    renderPreview();
+    log('Tasarım sıfırlandı.');
+  });
 
   // CSV parsing and wiring
   csvInput.addEventListener('change', async (e) => {
