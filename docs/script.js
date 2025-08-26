@@ -31,8 +31,6 @@
   const previewRowSelect = document.getElementById('previewRowSelect');
 
   const previewEl = document.getElementById('preview');
-  const previewZoomEl = document.getElementById('previewZoom');
-  const downloadCurrentBtn = document.getElementById('downloadCurrentBtn');
   const addTextLayerBtn = document.getElementById('addTextLayerBtn');
   const centerLayerBtn = document.getElementById('centerLayerBtn');
   const prevBtn = document.getElementById('prevBtn');
@@ -72,7 +70,10 @@
     });
   }
 
-  function saveLayout() { try { localStorage.setItem('designerLayout', JSON.stringify(layout)); } catch {} }
+  function saveLayout() {
+    try { localStorage.setItem('designerLayout', JSON.stringify(layout)); } catch {}
+  }
+
   function loadLayout() {
     try {
       const raw = localStorage.getItem('designerLayout');
@@ -87,8 +88,9 @@
   }
 
   function setBgPreview() {
-    const img = document.getElementById('bgImg');
-    if (bgDataUrl) img.src = bgDataUrl; else img.removeAttribute('src');
+    let bg = previewEl.querySelector('.bg');
+    if (!bg) { bg = document.createElement('div'); bg.className = 'bg'; previewEl.appendChild(bg); }
+    if (bgDataUrl) bg.style.backgroundImage = `url(${bgDataUrl})`; else bg.style.backgroundImage = '';
   }
 
   function normalizeHeadersFromRows(rs) {
@@ -149,7 +151,12 @@
     return { sx: scaleX, sy: scaleY };
   }
 
-  function cssAlign(align) { if (align === 'center') return 'center'; if (align === 'right') return 'right'; return 'left'; }
+  function cssAlign(align) {
+    if (align === 'center') return 'center';
+    if (align === 'right') return 'right';
+    return 'left';
+  }
+
   function cssFontFamily(font) {
     if (font === 'times') return 'Times New Roman, Times, serif';
     if (font === 'courier') return 'Courier New, Courier, monospace';
@@ -221,6 +228,7 @@
   function enableDrag(el, layer) {
     let dragging = false;
     let startX = 0, startY = 0, startL = 0, startT = 0;
+
     el.addEventListener('mousedown', (e) => {
       dragging = true;
       const rect = el.getBoundingClientRect();
@@ -275,21 +283,42 @@
     const file = e.target.files[0];
     if (!file) return;
     statusEl.textContent = 'CSV yükleniyor...';
-    Papa.parse(file, { header: true, skipEmptyLines: true, complete: (res) => {
-      rows = res.data; headers = res.meta.fields || normalizeHeadersFromRows(rows);
-      statusEl.textContent = `Yüklendi: ${rows.length} kayıt`;
-      exportCsvBtn.disabled = false; generateBtn.disabled = false; addCodesBtn.disabled = false;
-      renderTable(); renderPreview(); log('CSV başarıyla okundu.');
-    }});
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        rows = res.data;
+        headers = res.meta.fields || normalizeHeadersFromRows(rows);
+        statusEl.textContent = `Yüklendi: ${rows.length} kayıt`;
+        exportCsvBtn.disabled = false;
+        generateBtn.disabled = false;
+        addCodesBtn.disabled = false; // optional helper; user can ignore
+        renderTable();
+        renderPreview();
+        log('CSV başarıyla okundu.');
+      }
+    });
   });
 
-  if (previewRowSelect) previewRowSelect.addEventListener('change', () => { const idx = Number(previewRowSelect.value) || 0; previewRowIndex = Math.max(0, Math.min(rows.length - 1, idx)); renderPreview(); });
-  if (prevBtn) prevBtn.addEventListener('click', () => { if (!rows.length) return; previewRowIndex = Math.max(0, previewRowIndex - 1); if (previewRowSelect) previewRowSelect.value = String(previewRowIndex); renderPreview(); });
-  if (nextBtn) nextBtn.addEventListener('click', () => { if (!rows.length) return; previewRowIndex = Math.min(rows.length - 1, previewRowIndex + 1); if (previewRowSelect) previewRowSelect.value = String(previewRowIndex); renderPreview(); });
-
-  if (previewZoomEl) previewZoomEl.addEventListener('input', () => {
-    const scale = Number(previewZoomEl.value) || 1;
-    previewEl.style.transform = `scale(${scale})`;
+  // hook preview row selector
+  if (previewRowSelect) {
+    previewRowSelect.addEventListener('change', () => {
+      const idx = Number(previewRowSelect.value) || 0;
+      previewRowIndex = Math.max(0, Math.min(rows.length - 1, idx));
+      renderPreview();
+    });
+  }
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    if (!rows.length) return;
+    previewRowIndex = Math.max(0, previewRowIndex - 1);
+    if (previewRowSelect) previewRowSelect.value = String(previewRowIndex);
+    renderPreview();
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    if (!rows.length) return;
+    previewRowIndex = Math.min(rows.length - 1, previewRowIndex + 1);
+    if (previewRowSelect) previewRowSelect.value = String(previewRowIndex);
+    renderPreview();
   });
 
   // Background handling
@@ -303,62 +332,199 @@
   });
 
   function fileToDataURL(file) {
-    return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
+  // Optional: add verification codes into chosen field
   addCodesBtn.addEventListener('click', () => {
-    const field = (qrFieldEl.value || 'dogrulama_kodu').trim(); if (!field) { log('Kod alanı ismi girin.'); return; }
+    const field = (qrFieldEl.value || 'dogrulama_kodu').trim();
+    if (!field) { log('Kod alanı ismi girin.'); return; }
     let added = 0; let caps = 0;
-    rows.forEach(r => { if (!r[field] || String(r[field]).trim() === '') { r[field] = uuidv4(); added += 1; } if (typeof r['ad'] === 'string') { r['ad'] = r['ad'].charAt(0).toUpperCase() + r['ad'].slice(1); caps++; } if (typeof r['soyad'] === 'string') { r['soyad'] = r['soyad'].charAt(0).toUpperCase() + r['soyad'].slice(1); caps++; } });
-    if (!headers.includes(field)) headers.push(field); renderTable(); log(`${added} kod eklendi. Büyük harfe çevrilen alan sayısı: ${caps}`);
+    rows.forEach(r => {
+      if (!r[field] || String(r[field]).trim() === '') { r[field] = uuidv4(); added += 1; }
+      if (typeof r['ad'] === 'string') { r['ad'] = r['ad'].charAt(0).toUpperCase() + r['ad'].slice(1); caps++; }
+      if (typeof r['soyad'] === 'string') { r['soyad'] = r['soyad'].charAt(0).toUpperCase() + r['soyad'].slice(1); caps++; }
+    });
+    if (!headers.includes(field)) headers.push(field);
+    renderTable();
+    log(`${added} kod eklendi. Büyük harfe çevrilen alan sayısı: ${caps}`);
   });
 
-  exportCsvBtn.addEventListener('click', () => { const csv = Papa.unparse({ fields: headers, data: rows.map(r => headers.map(h => r[h] ?? '')) }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' }); saveAs(blob, 'etkinlik_guncel.csv'); });
+  exportCsvBtn.addEventListener('click', () => {
+    const csv = Papa.unparse({ fields: headers, data: rows.map(r => headers.map(h => r[h] ?? '')) });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    saveAs(blob, 'etkinlik_guncel.csv');
+  });
 
-  function joinUrl(base, path) { if (!base) return path; const b = base.endsWith('/') ? base.slice(0, -1) : base; const p = path.startsWith('/') ? path : '/' + path; return b + p; }
+  function joinUrl(base, path) {
+    if (!base) return path;
+    const b = base.endsWith('/') ? base.slice(0, -1) : base;
+    const p = path.startsWith('/') ? path : '/' + path;
+    return b + p;
+  }
 
   // Designer controls
   addTextLayerBtn.addEventListener('click', addTextLayer);
-  if (centerLayerBtn) centerLayerBtn.addEventListener('click', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.align = 'center'; l.x = Math.round(layout.pageW / 2); saveLayout(); renderPreview(); });
-  layerTextEl.addEventListener('input', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.text = layerTextEl.value; saveLayout(); renderPreview(); });
-  layerSizeEl.addEventListener('input', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.size = Number(layerSizeEl.value) || 24; saveLayout(); renderPreview(); });
-  layerColorEl.addEventListener('input', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.color = layerColorEl.value || '#000000'; saveLayout(); renderPreview(); });
-  layerXEl.addEventListener('input', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.x = Number(layerXEl.value) || 0; saveLayout(); renderPreview(); });
-  layerYEl.addEventListener('input', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.y = Number(layerYEl.value) || 0; saveLayout(); renderPreview(); });
-  layerAlignEl.addEventListener('change', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.align = layerAlignEl.value || 'left'; saveLayout(); renderPreview(); });
-  layerFontEl.addEventListener('change', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.font = layerFontEl.value || 'helvetica'; saveLayout(); renderPreview(); });
-  layerBoldEl.addEventListener('change', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.bold = !!layerBoldEl.checked; saveLayout(); renderPreview(); });
-  layerItalicEl.addEventListener('change', () => { const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return; l.italic = !!layerItalicEl.checked; saveLayout(); renderPreview(); });
+  if (centerLayerBtn) centerLayerBtn.addEventListener('click', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.align = 'center';
+    l.x = Math.round(layout.pageW / 2);
+    saveLayout(); renderPreview();
+  });
+
+  layerTextEl.addEventListener('input', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.text = layerTextEl.value; saveLayout(); renderPreview();
+  });
+  layerSizeEl.addEventListener('input', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.size = Number(layerSizeEl.value) || 24; saveLayout(); renderPreview();
+  });
+  layerColorEl.addEventListener('input', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.color = layerColorEl.value || '#000000'; saveLayout(); renderPreview();
+  });
+  layerXEl.addEventListener('input', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.x = Number(layerXEl.value) || 0; saveLayout(); renderPreview();
+  });
+  layerYEl.addEventListener('input', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.y = Number(layerYEl.value) || 0; saveLayout(); renderPreview();
+  });
+  layerAlignEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.align = layerAlignEl.value || 'left'; saveLayout(); renderPreview();
+  });
+  layerFontEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.font = layerFontEl.value || 'helvetica'; saveLayout(); renderPreview();
+  });
+  layerBoldEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.bold = !!layerBoldEl.checked; saveLayout(); renderPreview();
+  });
+  layerItalicEl.addEventListener('change', () => {
+    const l = layout.layers.find(x => x.id === selectedLayerId); if (!l) return;
+    l.italic = !!layerItalicEl.checked; saveLayout(); renderPreview();
+  });
   if (fontUploadEl) fontUploadEl.addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0]; if (!file) return; const arrayBuffer = await file.arrayBuffer(); let binary = ''; const bytes = new Uint8Array(arrayBuffer); const chunk = 0x8000; for (let i = 0; i < bytes.length; i += chunk) { binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)); } const base64 = btoa(binary); const vfsName = file.name; const family = 'custom'; try { jsPDF.API.addFileToVFS(vfsName, base64); jsPDF.API.addFont(vfsName, family, 'normal'); customFont = { vfsName, family }; const l = layout.layers.find(x => x.id === selectedLayerId); if (l) { l.font = 'custom'; } saveLayout(); renderPreview(); log('Özel font yüklendi.'); } catch (err) { log('Özel font yüklenemedi.'); }
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const arrayBuffer = await file.arrayBuffer();
+    // convert to base64
+    let binary = '';
+    const bytes = new Uint8Array(arrayBuffer);
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    const base64 = btoa(binary);
+    const vfsName = file.name;
+    const family = 'custom';
+    try {
+      jsPDF.API.addFileToVFS(vfsName, base64);
+      jsPDF.API.addFont(vfsName, family, 'normal');
+      customFont = { vfsName, family };
+      const l = layout.layers.find(x => x.id === selectedLayerId); if (l) { l.font = 'custom'; }
+      saveLayout(); renderPreview();
+      log('Özel font yüklendi.');
+    } catch (err) {
+      log('Özel font yüklenemedi.');
+    }
   });
-  deleteLayerBtn.addEventListener('click', () => { const idx = layout.layers.findIndex(x => x.id === selectedLayerId); if (idx >= 0) layout.layers.splice(idx, 1); selectedLayerId = null; saveLayout(); renderLayersList(); renderPreview(); layerEditorEl.classList.add('hidden'); });
+  deleteLayerBtn.addEventListener('click', () => {
+    const idx = layout.layers.findIndex(x => x.id === selectedLayerId);
+    if (idx >= 0) layout.layers.splice(idx, 1);
+    selectedLayerId = null; saveLayout(); renderLayersList(); renderPreview();
+    layerEditorEl.classList.add('hidden');
+  });
 
-  pageWEl.addEventListener('input', renderPreview); pageHEl.addEventListener('input', renderPreview);
+  pageWEl.addEventListener('input', renderPreview);
+  pageHEl.addEventListener('input', renderPreview);
 
-  // PDF generation (all)
+  // PDF generation
   generateBtn.addEventListener('click', async () => {
-    const pageW = Number(pageWEl.value) || layout.pageW; const pageH = Number(pageHEl.value) || layout.pageH; if (!rows.length) { log('Önce CSV yükleyin.'); return; }
-    const zip = new JSZip(); const base = (qrBaseEl?.value?.trim()) || ''; const qrField = (qrFieldEl?.value?.trim()) || ''; const includeQr = !!qrEnableEl.checked && !!qrField; const qrX = Number(qrXEl?.value || 0) || 0; const qrY = Number(qrYEl?.value || 0) || 0; const qrSize = Number(qrSizeEl?.value || 75) || 75;
-    for (let i = 0; i < rows.length; i++) { const r = rows[i]; const code = qrField ? (r[qrField] || '') : ''; const fileName = code ? `${code}.pdf` : `sertifika_${i+1}.pdf`; const doc = new jsPDF({ unit: 'pt', format: [pageW, pageH] }); if (bgDataUrl) { try { doc.addImage(bgDataUrl, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch { try { doc.addImage(bgDataUrl, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch {} } } if (customFont && customFont.vfsName) { try { jsPDF.API.addFont(customFont.vfsName, customFont.family, 'normal'); } catch {} } layout.layers.forEach(layer => { const text = compileTemplate(layer.text, r); const family = (layer.font === 'custom' && customFont) ? customFont.family : (layer.font || 'helvetica'); const style = (layer.bold && layer.italic) ? 'bolditalic' : (layer.bold ? 'bold' : (layer.italic ? 'italic' : 'normal')); try { doc.setFont(family, style); } catch {} try { doc.setTextColor(layer.color || '#000000'); } catch { doc.setTextColor(0,0,0); } doc.setFontSize(Number(layer.size || 24)); doc.text(String(text || ''), Number(layer.x || 0), Number(layer.y || 0), { align: layer.align || 'left', baseline: 'alphabetic' }); }); if (includeQr && code) { const url = joinUrl(base, `${code}.pdf`); try { const qrDataUrl = await generateQrDataUrl(url); doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize, undefined, 'FAST'); } catch {} } const pdfBlob = doc.output('blob'); zip.file(fileName, pdfBlob); log(`${i+1}/${rows.length} → ${fileName} hazır`); }
-    const zipBlob = await zip.generateAsync({ type: 'blob' }); saveAs(zipBlob, 'sertifikalar.zip'); log('ZIP indirildi.');
+    const pageW = Number(pageWEl.value) || layout.pageW;
+    const pageH = Number(pageHEl.value) || layout.pageH;
+    if (!rows.length) { log('Önce CSV yükleyin.'); return; }
+
+    const zip = new JSZip();
+    const base = (qrBaseEl?.value?.trim()) || '';
+    const qrField = (qrFieldEl?.value?.trim()) || '';
+    const includeQr = !!qrEnableEl.checked && !!qrField;
+    const qrX = Number(qrXEl?.value || 0) || 0;
+    const qrY = Number(qrYEl?.value || 0) || 0;
+    const qrSize = Number(qrSizeEl?.value || 75) || 75;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const code = qrField ? (r[qrField] || '') : '';
+      const fileName = code ? `${code}.pdf` : `sertifika_${i+1}.pdf`;
+
+      const doc = new jsPDF({ unit: 'pt', format: [pageW, pageH] });
+      if (bgDataUrl) {
+        try { doc.addImage(bgDataUrl, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST'); }
+        catch { try { doc.addImage(bgDataUrl, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch {} }
+      }
+
+      if (customFont && customFont.vfsName) {
+        try { jsPDF.API.addFont(customFont.vfsName, customFont.family, 'normal'); } catch {}
+      }
+
+      layout.layers.forEach(layer => {
+        const text = compileTemplate(layer.text, r);
+        const family = (layer.font === 'custom' && customFont) ? customFont.family : (layer.font || 'helvetica');
+        const style = (layer.bold && layer.italic) ? 'bolditalic' : (layer.bold ? 'bold' : (layer.italic ? 'italic' : 'normal'));
+        try { doc.setFont(family, style); } catch {}
+        try { doc.setTextColor(layer.color || '#000000'); } catch { doc.setTextColor(0,0,0); }
+        doc.setFontSize(Number(layer.size || 24));
+        doc.text(String(text || ''), Number(layer.x || 0), Number(layer.y || 0), { align: layer.align || 'left', baseline: 'alphabetic' });
+      });
+
+      if (includeQr && code) {
+        const url = joinUrl(base, `${code}.pdf`);
+        try {
+          const qrDataUrl = await generateQrDataUrl(url);
+          doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize, undefined, 'FAST');
+        } catch {}
+      }
+
+      const pdfBlob = doc.output('blob');
+      zip.file(fileName, pdfBlob);
+      log(`${i+1}/${rows.length} → ${fileName} hazır`);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    saveAs(zipBlob, 'sertifikalar.zip');
+    log('ZIP indirildi.');
   });
 
-  // Single current PDF download
-  if (downloadCurrentBtn) downloadCurrentBtn.addEventListener('click', async () => {
-    const pageW = Number(pageWEl.value) || layout.pageW; const pageH = Number(pageHEl.value) || layout.pageH; if (!rows.length) { log('Önce CSV yükleyin.'); return; }
-    const base = (qrBaseEl?.value?.trim()) || ''; const qrField = (qrFieldEl?.value?.trim()) || ''; const includeQr = !!qrEnableEl.checked && !!qrField; const qrX = Number(qrXEl?.value || 0) || 0; const qrY = Number(qrYEl?.value || 0) || 0; const qrSize = Number(qrSizeEl?.value || 75) || 75;
-    const r = rows[previewRowIndex] || {}; const code = qrField ? (r[qrField] || '') : ''; const fileName = code ? `${code}.pdf` : `sertifika_${previewRowIndex+1}.pdf`;
-    const doc = new jsPDF({ unit: 'pt', format: [pageW, pageH] }); if (bgDataUrl) { try { doc.addImage(bgDataUrl, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch { try { doc.addImage(bgDataUrl, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch {} } } if (customFont && customFont.vfsName) { try { jsPDF.API.addFont(customFont.vfsName, customFont.family, 'normal'); } catch {} }
-    layout.layers.forEach(layer => { const text = compileTemplate(layer.text, r); const family = (layer.font === 'custom' && customFont) ? customFont.family : (layer.font || 'helvetica'); const style = (layer.bold && layer.italic) ? 'bolditalic' : (layer.bold ? 'bold' : (layer.italic ? 'italic' : 'normal')); try { doc.setFont(family, style); } catch {} try { doc.setTextColor(layer.color || '#000000'); } catch { doc.setTextColor(0,0,0); } doc.setFontSize(Number(layer.size || 24)); doc.text(String(text || ''), Number(layer.x || 0), Number(layer.y || 0), { align: layer.align || 'left', baseline: 'alphabetic' }); });
-    if (includeQr && code) { const url = joinUrl(base, `${code}.pdf`); try { const qrDataUrl = await generateQrDataUrl(url); doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize, undefined, 'FAST'); } catch {} }
-    doc.save(fileName);
-  });
-
-  async function generateQrDataUrl(text) { return new Promise((resolve) => { const temp = document.createElement('div'); temp.style.position = 'fixed'; temp.style.left = '-9999px'; document.body.appendChild(temp); const qr = new QRCode(temp, { text, width: 300, height: 300, correctLevel: QRCode.CorrectLevel.L }); setTimeout(() => { const img = temp.querySelector('img') || temp.querySelector('canvas'); const dataUrl = img instanceof HTMLCanvasElement ? img.toDataURL('image/png') : img.src; document.body.removeChild(temp); resolve(dataUrl); }, 50); }); }
+  async function generateQrDataUrl(text) {
+    return new Promise((resolve) => {
+      const temp = document.createElement('div');
+      temp.style.position = 'fixed';
+      temp.style.left = '-9999px';
+      document.body.appendChild(temp);
+      const qr = new QRCode(temp, { text, width: 300, height: 300, correctLevel: QRCode.CorrectLevel.L });
+      setTimeout(() => {
+        const img = temp.querySelector('img') || temp.querySelector('canvas');
+        const dataUrl = img instanceof HTMLCanvasElement ? img.toDataURL('image/png') : img.src;
+        document.body.removeChild(temp);
+        resolve(dataUrl);
+      }, 50);
+    });
+  }
 
   // init
-  loadLayout(); renderLayersList(); renderPreview();
+  loadLayout();
+  renderLayersList();
+  renderPreview();
 })();
 
 
