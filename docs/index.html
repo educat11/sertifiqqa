@@ -17,8 +17,14 @@
       <h1>Sertifika Oluşturucu</h1>
       <p class="muted">CSV yükleyin, önizleyin, tasarlayın, QR'lı PDF sertifikalar oluşturun.</p>
 
-      <section class="panel">
-        <label class="field">
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab-target="data" title="Veri yükleme ve önizleme">Veri</button>
+        <button class="tab" data-tab-target="design" title="Sertifika tasarımcısı">Tasarım</button>
+        <button class="tab" data-tab-target="export" title="Dışa aktarma ve ayarlar">Dışa Aktar</button>
+      </nav>
+
+      <section class="panel" data-tab="data">
+        <label class="field" title="Bilgisayarınızdan CSV seçin">
           <span>CSV Yükleyin</span>
           <input type="file" id="csvInput" accept=".csv" />
         </label>
@@ -26,71 +32,50 @@
           <summary>CSV Hakkında</summary>
           <p>Herhangi bir sütun yapısı desteklenir. İçerikteki alan adlarını tasarımda {{alan}} olarak kullanabilirsiniz.</p>
         </details>
-      </section>
-
-      <section class="panel">
-        <label class="field">
-          <span>Arkaplan Görseli (PNG/JPG) - opsiyonel</span>
-          <input type="file" id="bgInput" accept="image/*" />
-        </label>
         <div class="row">
-          <label class="field half">
-            <span>Sayfa Genişlik (pt)</span>
-            <input type="number" id="pageW" value="1125" />
+          <label class="field half" title="Önizlemede kullanılacak satırı seçin">
+            <span>Önizleme Kaydı</span>
+            <select id="previewRowSelect"></select>
           </label>
-          <label class="field half">
-            <span>Sayfa Yükseklik (pt)</span>
-            <input type="number" id="pageH" value="870" />
+          <label class="field half" title="Günlük ve durum mesajları">
+            <span>Durum</span>
+            <div id="status">Henüz dosya yüklenmedi.</div>
           </label>
         </div>
-      </section>
+        <div id="log" class="log" title="İşlem günlükleri"></div>
 
-      <section class="panel">
-        <label class="field">
-          <span>QR Taban URL</span>
-          <input type="text" id="qrBase" placeholder="https://ornek.com/sertifikalar/" value="https://btk-kulup.marmara.edu.tr/dosya/kulup/btk/sertfikalar/" />
-        </label>
-        <div class="row">
-          <label class="field half">
-            <span>QR Alanı (CSV'deki sütun adı, opsiyonel)</span>
-            <input type="text" id="qrField" placeholder="dogrulama_kodu" />
-          </label>
-          <label class="field half">
-            <span>QR Dahil Et</span>
-            <input type="checkbox" id="qrEnable" />
-          </label>
-        </div>
-      </section>
-
-      <section class="panel actions">
-        <button id="addCodesBtn" disabled>Doğrulama Kodları Ekle</button>
-        <button id="exportCsvBtn" disabled>Güncellenmiş CSV'yi İndir</button>
-        <button id="generateBtn" disabled>PDF Sertifikaları Oluştur (ZIP)</button>
-      </section>
-
-      <section class="panel">
-        <div id="status">Henüz dosya yüklenmedi.</div>
-        <div id="log" class="log"></div>
-      </section>
-
-      <section class="panel">
-        <h3>CSV Önizleme</h3>
-        <div id="tableWrap" class="table-wrap">
+        <div class="table-wrap" title="Yüklenen CSV tablosu">
           <table id="csvTable"></table>
         </div>
       </section>
 
-      <section class="panel">
-        <h3>Sertifika Tasarımcısı</h3>
+      <section class="panel hidden" data-tab="design">
+        <label class="field" title="Arkaplan görseli yükleyin (isteğe bağlı)">
+          <span>Arkaplan Görseli (PNG/JPG) - opsiyonel</span>
+          <input type="file" id="bgInput" accept="image/*" />
+        </label>
+        <div class="row">
+          <label class="field half" title="Sayfa genişliği">
+            <span>Sayfa Genişlik (pt)</span>
+            <input type="number" id="pageW" value="1125" />
+          </label>
+          <label class="field half" title="Sayfa yüksekliği">
+            <span>Sayfa Yükseklik (pt)</span>
+            <input type="number" id="pageH" value="870" />
+          </label>
+        </div>
+
         <div class="row">
           <div class="half">
             <div id="preview" class="preview" title="Katmanları sürükleyin"></div>
           </div>
           <div class="half">
             <div class="controls">
-              <button id="addTextLayerBtn">Metin Katmanı Ekle</button>
-              <div id="layersList" class="layers-list"></div>
-              <div id="layerEditor" class="layer-editor hidden">
+              <div class="row">
+                <button id="addTextLayerBtn" title="Yeni metin katmanı ekle">Metin Katmanı Ekle</button>
+              </div>
+              <div id="layersList" class="layers-list" title="Katmanlar listesi"></div>
+              <div id="layerEditor" class="layer-editor hidden" title="Seçili katman ayarları">
                 <label class="field"><span>İçerik ({{alan}} destekli)</span>
                   <textarea id="layerText" rows="3" placeholder="Örn: {{ad}} {{soyad}}"></textarea>
                 </label>
@@ -111,11 +96,34 @@
                   </label>
                 </div>
                 <div class="row">
-                  <button id="deleteLayerBtn" class="danger">Katmanı Sil</button>
+                  <button id="deleteLayerBtn" class="danger" title="Seçili katmanı sil">Katmanı Sil</button>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="panel hidden" data-tab="export">
+        <label class="field" title="QR linklerinin temel adresi">
+          <span>QR Taban URL</span>
+          <input type="text" id="qrBase" placeholder="https://ornek.com/sertifikalar/" value="https://btk-kulup.marmara.edu.tr/dosya/kulup/btk/sertfikalar/" />
+        </label>
+        <div class="row">
+          <label class="field half" title="CSV'de QR için kullanılacak sütun adı">
+            <span>QR Alanı (CSV'deki sütun adı, opsiyonel)</span>
+            <input type="text" id="qrField" placeholder="dogrulama_kodu" />
+          </label>
+          <label class="field half" title="PDF'lere QR ekle">
+            <span>QR Dahil Et</span>
+            <input type="checkbox" id="qrEnable" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="addCodesBtn" disabled title="Eksik doğrulama kodlarını ekle">Doğrulama Kodları Ekle</button>
+          <button id="exportCsvBtn" disabled title="Güncellenmiş CSV'yi indir">Güncellenmiş CSV'yi İndir</button>
+          <button id="generateBtn" disabled title="PDF sertifikaları ZIP olarak oluştur">PDF Sertifikaları Oluştur (ZIP)</button>
         </div>
       </section>
     </div>

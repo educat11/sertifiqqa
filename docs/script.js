@@ -25,7 +25,7 @@
   const qrEnableEl = document.getElementById('qrEnable');
 
   const tableEl = document.getElementById('csvTable');
-  const tableWrap = document.getElementById('tableWrap');
+  const previewRowSelect = document.getElementById('previewRowSelect');
 
   const previewEl = document.getElementById('preview');
   const addTextLayerBtn = document.getElementById('addTextLayerBtn');
@@ -37,6 +37,9 @@
   const layerXEl = document.getElementById('layerX');
   const layerYEl = document.getElementById('layerY');
   const deleteLayerBtn = document.getElementById('deleteLayerBtn');
+
+  const tabButtons = Array.from(document.querySelectorAll('.tab'));
+  const tabPanels = Array.from(document.querySelectorAll('[data-tab]'));
 
   let rows = [];
   let headers = [];
@@ -58,10 +61,17 @@
     });
   }
 
+  function setActiveTab(key) {
+    tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tabTarget === key));
+    tabPanels.forEach(panel => panel.classList.toggle('hidden', panel.getAttribute('data-tab') !== key));
+  }
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => setActiveTab(btn.dataset.tabTarget));
+  });
+
   function saveLayout() {
-    try {
-      localStorage.setItem('designerLayout', JSON.stringify(layout));
-    } catch {}
+    try { localStorage.setItem('designerLayout', JSON.stringify(layout)); } catch {}
   }
 
   function loadLayout() {
@@ -79,11 +89,7 @@
 
   function setBgPreview() {
     let bg = previewEl.querySelector('.bg');
-    if (!bg) {
-      bg = document.createElement('div');
-      bg.className = 'bg';
-      previewEl.appendChild(bg);
-    }
+    if (!bg) { bg = document.createElement('div'); bg.className = 'bg'; previewEl.appendChild(bg); }
     if (bgDataUrl) bg.style.backgroundImage = `url(${bgDataUrl})`; else bg.style.backgroundImage = '';
   }
 
@@ -95,32 +101,39 @@
     return Array.from(keys);
   }
 
+  function populatePreviewSelector() {
+    if (!previewRowSelect) return;
+    previewRowSelect.innerHTML = '';
+    const count = rows.length;
+    for (let i = 0; i < count; i++) {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      const label = headers.length ? headers.map(h => rows[i][h]).filter(Boolean).slice(0,2).join(' ') : `Kayıt ${i+1}`;
+      opt.textContent = label || `Kayıt ${i+1}`;
+      previewRowSelect.appendChild(opt);
+    }
+    previewRowSelect.value = String(Math.min(previewRowIndex, Math.max(0, count - 1)));
+  }
+
   function renderTable() {
     tableEl.innerHTML = '';
     headers = normalizeHeadersFromRows(rows);
-    if (!headers.length) return;
+    if (!headers.length) { populatePreviewSelector(); return; }
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    headers.forEach(h => {
-      const th = document.createElement('th');
-      th.textContent = h;
-      trh.appendChild(th);
-    });
+    headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
     thead.appendChild(trh);
     tableEl.appendChild(thead);
 
     const tbody = document.createElement('tbody');
     rows.forEach((r, idx) => {
       const tr = document.createElement('tr');
-      tr.addEventListener('click', () => { previewRowIndex = idx; renderPreview(); });
-      headers.forEach(h => {
-        const td = document.createElement('td');
-        td.textContent = r[h] ?? '';
-        tr.appendChild(td);
-      });
+      tr.addEventListener('click', () => { previewRowIndex = idx; if (previewRowSelect) previewRowSelect.value = String(idx); renderPreview(); });
+      headers.forEach(h => { const td = document.createElement('td'); td.textContent = r[h] ?? ''; tr.appendChild(td); });
       tbody.appendChild(tr);
     });
     tableEl.appendChild(tbody);
+    populatePreviewSelector();
   }
 
   function compileTemplate(tpl, data) {
@@ -132,7 +145,6 @@
   }
 
   function pxPerPt() {
-    // preview element width maps to pageW points
     const rect = previewEl.getBoundingClientRect();
     const scaleX = rect.width / layout.pageW;
     const scaleY = rect.height / layout.pageH;
@@ -157,14 +169,12 @@
   }
 
   function renderPreview() {
-    // page size aspect ratio
     const w = Number(pageWEl.value) || layout.pageW;
     const h = Number(pageHEl.value) || layout.pageH;
     layout.pageW = w; layout.pageH = h; saveLayout();
     previewEl.style.aspectRatio = `${w} / ${h}`;
     setBgPreview();
 
-    // clear existing layers DOM
     Array.from(previewEl.querySelectorAll('.layer')).forEach(el => el.remove());
 
     const row = rows[previewRowIndex] || {};
@@ -256,6 +266,15 @@
     });
   });
 
+  // hook preview row selector
+  if (previewRowSelect) {
+    previewRowSelect.addEventListener('change', () => {
+      const idx = Number(previewRowSelect.value) || 0;
+      previewRowIndex = Math.max(0, Math.min(rows.length - 1, idx));
+      renderPreview();
+    });
+  }
+
   // Background handling
   bgInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -282,7 +301,6 @@
     let added = 0; let caps = 0;
     rows.forEach(r => {
       if (!r[field] || String(r[field]).trim() === '') { r[field] = uuidv4(); added += 1; }
-      // capitalize common fields if exist
       if (typeof r['ad'] === 'string') { r['ad'] = r['ad'].charAt(0).toUpperCase() + r['ad'].slice(1); caps++; }
       if (typeof r['soyad'] === 'string') { r['soyad'] = r['soyad'].charAt(0).toUpperCase() + r['soyad'].slice(1); caps++; }
     });
@@ -354,28 +372,22 @@
       const fileName = code ? `${code}.pdf` : `sertifika_${i+1}.pdf`;
 
       const doc = new jsPDF({ unit: 'pt', format: [pageW, pageH] });
-      // background
       if (bgDataUrl) {
         try { doc.addImage(bgDataUrl, 'PNG', 0, 0, pageW, pageH, undefined, 'FAST'); }
         catch { try { doc.addImage(bgDataUrl, 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST'); } catch {} }
       }
 
-      // text layers
       layout.layers.forEach(layer => {
         const text = compileTemplate(layer.text, r);
-        try {
-          doc.setTextColor(layer.color || '#000000');
-        } catch { doc.setTextColor(0,0,0); }
+        try { doc.setTextColor(layer.color || '#000000'); } catch { doc.setTextColor(0,0,0); }
         doc.setFontSize(Number(layer.size || 24));
         doc.text(String(text || ''), Number(layer.x || 0), Number(layer.y || 0), { align: 'left', baseline: 'alphabetic' });
       });
 
-      // QR if enabled and value present
       if (includeQr && code) {
         const url = joinUrl(base, `${code}.pdf`);
         try {
           const qrDataUrl = await generateQrDataUrl(url);
-          // place at bottom-right by default, size 75x75
           const qrSize = 75;
           doc.addImage(qrDataUrl, 'PNG', pageW - (qrSize + 40), pageH - (qrSize + 40), qrSize, qrSize, undefined, 'FAST');
         } catch {}
@@ -411,6 +423,7 @@
   loadLayout();
   renderLayersList();
   renderPreview();
+  setActiveTab('data');
 })();
 
 

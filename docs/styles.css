@@ -28,8 +28,18 @@ body {
 h1 { margin: 0 0 12px; font-size: 28px; }
 .muted { color: var(--muted); margin: 0 0 24px; }
 
-.panel {
-  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tab {
+  background: #0f1625;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.tab.active { background: var(--accent); border-color: var(--accent); }
+
+.panel {  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
@@ -37,9 +47,11 @@ h1 { margin: 0 0 12px; font-size: 28px; }
   backdrop-filter: blur(6px);
 }
 
+.hidden { display: none; }
+
 .field { display: block; margin: 8px 0; }
 .field > span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
-.field input[type="file"], .field input[type="number"], .field input[type="text"], .field textarea, .field input[type="color"] {
+.field input[type="file"], .field input[type="number"], .field input[type="text"], .field textarea, .field input[type="color"], .field select {
   width: 100%;
   padding: 10px 12px;
   background: #0f1625;
@@ -48,8 +60,8 @@ h1 { margin: 0 0 12px; font-size: 28px; }
   border-radius: 8px;
 }
 
-.row { display: flex; gap: 12px; }
-.half { flex: 1; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.half { flex: 1; min-width: 260px; }
 
 .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 button {
@@ -65,7 +77,7 @@ button:disabled { background: #2c3b59; cursor: not-allowed; }
 button:hover:not(:disabled) { filter: brightness(1.05); }
 
 .log {
-  max-height: 240px;
+  max-height: 160px;
   overflow: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
